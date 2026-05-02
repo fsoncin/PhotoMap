@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le mie fotografie analogiche</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #1a1612;
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  #map { width: 100%; height: 100%; }
+
+  #title-box {
+    position: absolute;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #title-box h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #f5f0e8;
+    letter-spacing: 0.08em;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+
+  #title-box p {
+    font-size: 0.65rem;
+    font-weight: 300;
+    color: #c8b99a;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  }
+
+  #legend {
+    position: absolute;
+    bottom: 32px;
+    right: 28px;
+    z-index: 1000;
+    background: rgba(20,17,13,0.82);
+    border: 1px solid rgba(200,185,154,0.25);
+    border-radius: 3px;
+    padding: 16px 20px;
+    backdrop-filter: blur(8px);
+  }
+
+  #legend h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #c8b99a;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.68rem;
+    font-weight: 300;
+    color: #e8dfc8;
+    letter-spacing: 0.05em;
+  }
+
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #counter {
+    position: absolute;
+    bottom: 32px;
+    left: 28px;
+    z-index: 1000;
+    background: rgba(20,17,13,0.82);
+    border: 1px solid rgba(200,185,154,0.25);
+    border-radius: 3px;
+    padding: 14px 20px;
+    backdrop-filter: blur(8px);
+    text-align: center;
+  }
+
+  #counter .num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #f5f0e8;
+    line-height: 1;
+  }
+
+  #counter .label {
+    font-size: 0.6rem;
+    font-weight: 300;
+    color: #c8b99a;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── LIGHTBOX ── */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(10,8,6,0.96);
+    backdrop-filter: blur(16px);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #lightbox.active { display: flex; }
+
+  #lightbox-header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 36px;
+  }
+
+  #lightbox-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #f5f0e8;
+    letter-spacing: 0.06em;
+  }
+
+  #lightbox-counter {
+    font-size: 0.65rem;
+    font-weight: 300;
+    color: #c8b99a;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  #lightbox-close {
+    background: none;
+    border: 1px solid rgba(200,185,154,0.3);
+    color: #c8b99a;
+    width: 36px; height: 36px;
+    border-radius: 2px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  #lightbox-close:hover { background: rgba(200,185,154,0.1); color: #f5f0e8; }
+
+  #lightbox-img-wrap {
+    max-width: 80vw;
+    max-height: 72vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #lightbox-img {
+    max-width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    border: 1px solid rgba(200,185,154,0.15);
+    box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+  }
+
+  #lightbox-filename {
+    margin-top: 12px;
+    font-size: 0.58rem;
+    font-weight: 300;
+    color: #5a5040;
+    letter-spacing: 0.15em;
+  }
+
+  #thumb-strip {
+    position: absolute;
+    bottom: 82px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    max-width: 80vw;
+    overflow-x: auto;
+    padding: 4px;
+  }
+
+  #thumb-strip::-webkit-scrollbar { height: 3px; }
+  #thumb-strip::-webkit-scrollbar-thumb { background: rgba(200,185,154,0.3); border-radius: 2px; }
+
+  .thumb {
+    width: 50px; height: 50px;
+    object-fit: cover;
+    border: 1px solid rgba(200,185,154,0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .thumb:hover { opacity: 0.75; }
+  .thumb.active { opacity: 1; border-color: rgba(200,185,154,0.7); }
+
+  #lightbox-nav {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+  }
+
+  .nav-btn {
+    background: rgba(200,185,154,0.07);
+    border: 1px solid rgba(200,185,154,0.25);
+    color: #c8b99a;
+    padding: 8px 22px;
+    border-radius: 2px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .nav-btn:hover { background: rgba(200,185,154,0.16); color: #f5f0e8; }
+  .nav-btn:disabled { opacity: 0.2; cursor: default; }
+
+  /* ── POPUP ── */
+  .leaflet-popup-content-wrapper {
+    background: rgba(20,17,13,0.93) !important;
+    border: 1px solid rgba(200,185,154,0.28) !important;
+    border-radius: 3px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.55) !important;
+    backdrop-filter: blur(12px);
+  }
+
+  .leaflet-popup-tip { background: rgba(20,17,13,0.93) !important; }
+  .leaflet-popup-content { margin: 14px 18px !important; }
+
+  .popup-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #f5f0e8;
+    margin-bottom: 5px;
+  }
+
+  .popup-count {
+    font-size: 0.63rem;
+    font-weight: 300;
+    color: #c8b99a;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .popup-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .popup-btn {
+    display: inline-block;
+    background: rgba(200,185,154,0.1);
+    border: 1px solid rgba(200,185,154,0.28);
+    color: #c8b99a;
+    padding: 5px 13px;
+    border-radius: 2px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.58rem;
+    font-weight: 300;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .popup-btn:hover { background: rgba(200,185,154,0.2); color: #f5f0e8; }
+
+  .leaflet-control-attribution {
+    background: rgba(20,17,13,0.7) !important;
+    color: #666 !important;
+    font-size: 0.52rem !important;
+  }
+
+  .leaflet-control-attribution a { color: #888 !important; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="title-box">
+  <h1>Le mie fotografie analogiche</h1>
+  <p>Distribuzione geografica degli scatti stampati</p>
+</div>
+
+<div id="legend">
+  <h3>Scatti per luogo</h3>
+  <div class="legend-item"><div class="legend-dot" style="background:#c0392b;"></div> 20+ scatti</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e67e22;"></div> 6–10 scatti</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f1c40f;"></div> 3–5 scatti</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div> 2 scatti</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2980b9;"></div> 1 scatto</div>
+</div>
+
+<div id="counter">
+  <div class="num" id="total-count">—</div>
+  <div class="label">scatti totali</div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox">
+  <div id="lightbox-header">
+    <div>
+      <div id="lightbox-title"></div>
+      <div id="lightbox-counter"></div>
+    </div>
+    <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  </div>
+
+  <div id="lightbox-img-wrap">
+    <img id="lightbox-img" src="" alt="">
+  </div>
+  <div id="lightbox-filename"></div>
+  <div id="thumb-strip"></div>
+
+  <div id="lightbox-nav">
+    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">← Precedente</button>
+    <button class="nav-btn" id="btn-next" onclick="navigate(1)">Successiva →</button>
+  </div>
+</div>
+
+<script>
+// ── FOTO ──────────────────────────────────────────────────────────────────────
+const allPhotos = [
+  { file: "2024-08-23 Anagni.jpg",            luogo: "Anagni" },
+  { file: "2024-08-25 Arpino.jpg",            luogo: "Arpino" },
+  { file: "2024-09-17 Torino.jpg",            luogo: "Torino" },
+  { file: "2024-10-20 Catello di Arco.jpg",   luogo: "Castello di Arco" },
+  { file: "2024-10-31 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2024-11-11 Palermo.jpg",           luogo: "Palermo" },
+  { file: "2024-11-14 Palermo (2).jpg",       luogo: "Palermo" },
+  { file: "2024-11-14 Palermo.jpg",           luogo: "Palermo" },
+  { file: "2024-11-15 Monreale (2).jpg",      luogo: "Monreale" },
+  { file: "2024-11-15 Monreale (3).jpg",      luogo: "Monreale" },
+  { file: "2024-11-15 Monreale (4).jpg",      luogo: "Monreale" },
+  { file: "2024-11-15 Monreale.jpg",          luogo: "Monreale" },
+  { file: "2024-11-20 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2024-12-12 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-01-06 Valdobbiadene.jpg",     luogo: "Valdobbiadene" },
+  { file: "2025-01-26 Perugia.jpg",           luogo: "Perugia" },
+  { file: "2025-01-27 Perugia.jpg",           luogo: "Perugia" },
+  { file: "2025-03-08 Noli.jpg",              luogo: "Noli" },
+  { file: "2025-03-08 Savona.jpg",            luogo: "Savona" },
+  { file: "2025-03-11 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-03-19 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-03-31 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-04-02 Venezia (2).jpg",       luogo: "Venezia" },
+  { file: "2025-04-02 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-04-03 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-04-04 Padova (2).jpg",        luogo: "Padova" },
+  { file: "2025-04-04 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-04-04 Venezia (2).jpg",       luogo: "Venezia" },
+  { file: "2025-04-04 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-04-05 Jesolo.jpg",            luogo: "Jesolo" },
+  { file: "2025-04-21 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-04-24 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-05-04 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-05-23 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-05-28 Ferrara.jpg",           luogo: "Ferrara" },
+  { file: "2025-06-02 Padova.jpg",            luogo: "Padova" },
+  { file: "2025-06-22 Lago di Santa Croce.jpg", luogo: "Lago di Santa Croce" },
+  { file: "2025-06-25 Roma.jpg",              luogo: "Roma" },
+  { file: "2025-06-26 Roma.jpg",              luogo: "Roma" },
+  { file: "2025-08-06 Santo Antao (2).jpg",   luogo: "Santo Antão" },
+  { file: "2025-08-06 Santo Antao.jpg",       luogo: "Santo Antão" },
+  { file: "2025-08-07 Santo Antao (2).jpg",   luogo: "Santo Antão" },
+  { file: "2025-08-07 Santo Antao (3).jpg",   luogo: "Santo Antão" },
+  { file: "2025-08-07 Santo Antao (4).jpg",   luogo: "Santo Antão" },
+  { file: "2025-08-07 Santo Antao (5).jpg",   luogo: "Santo Antão" },
+  { file: "2025-08-07 Santo Antao.jpg",       luogo: "Santo Antão" },
+  { file: "2025-08-08 Mindelo.jpg",           luogo: "Mindelo" },
+  { file: "2025-08-08 Santo Antao.jpg",       luogo: "Santo Antão" },
+  { file: "2025-08-08 Sao Vicente.jpg",       luogo: "São Vicente" },
+  { file: "2025-08-09 Mindelo (2).jpg",       luogo: "Mindelo" },
+  { file: "2025-08-09 Mindelo (3).jpg",       luogo: "Mindelo" },
+  { file: "2025-08-09 Mindelo.jpg",           luogo: "Mindelo" },
+  { file: "2025-09-22 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-09-26 Vicenza.jpg",           luogo: "Vicenza" },
+  { file: "2025-09-27 Vicenza.jpg",           luogo: "Vicenza" },
+  { file: "2025-10-02 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-10-11 Venezia.jpg",           luogo: "Venezia" },
+  { file: "2025-10-15 Palermo.jpg",           luogo: "Palermo" },
+  { file: "2025-10-16 Palermo.jpg",           luogo: "Palermo" },
+  { file: "2025-10-18 Erice (2).jpg",         luogo: "Erice" },
+  { file: "2025-10-18 Erice (3).jpg",         luogo: "Erice" },
+  { file: "2025-10-18 Erice (4).jpg",         luogo: "Erice" },
+  { file: "2025-10-18 Erice (5).jpg",         luogo: "Erice" },
+  { file: "2025-10-18 Erice (6).jpg",         luogo: "Erice" },
+  { file: "2025-10-18 Erice.jpg",             luogo: "Erice" },
+  { file: "2025-12-28 Napoli (2).jpg",        luogo: "Napoli" },
+  { file: "2025-12-28 Napoli (3).jpg",        luogo: "Napoli" },
+  { file: "2025-12-28 Napoli.jpg",            luogo: "Napoli" },
+  { file: "2026-01-24 Lione (2).jpg",         luogo: "Lione" },
+  { file: "2026-01-24 Lione.jpg",             luogo: "Lione" },
+  { file: "2026-02-04 Colonia (2).jpg",       luogo: "Colonia" },
+  { file: "2026-02-04 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-02-07 Colonia (2).jpg",       luogo: "Colonia" },
+  { file: "2026-02-07 Colonia (3).jpg",       luogo: "Colonia" },
+  { file: "2026-02-07 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-02-08 Colonia (2).jpg",       luogo: "Colonia" },
+  { file: "2026-02-08 Colonia (3).jpg",       luogo: "Colonia" },
+  { file: "2026-02-08 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-02-20 Colonia (2).jpg",       luogo: "Colonia" },
+  { file: "2026-02-20 Colonia (3).jpg",       luogo: "Colonia" },
+  { file: "2026-02-20 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-02-23 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-02-26 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-03-02 Colonia (2).jpg",       luogo: "Colonia" },
+  { file: "2026-03-02 Colonia.jpg",           luogo: "Colonia" },
+  { file: "2026-04 Aachen (2).jpg",           luogo: "Aachen" },
+  { file: "2026-04 Aachen (3).jpg",           luogo: "Aachen" },
+  { file: "2026-04 Aachen.jpg",               luogo: "Aachen" },
+  { file: "2026-04 Bonn.jpg",                 luogo: "Bonn" },
+  { file: "2026-04 Colonia (2).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (3).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (4).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (5).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (6).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (7).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (8).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (9).jpg",          luogo: "Colonia" },
+  { file: "2026-04 Colonia (10).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (11).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (12).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (13).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (14).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (15).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (16).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (17).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (18).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (19).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia (20).jpg",         luogo: "Colonia" },
+  { file: "2026-04 Colonia.jpg",              luogo: "Colonia" },
+];
+
+// ── LUOGHI con coordinate ─────────────────────────────────────────────────────
+const luoghi = [
+  { nome: "Colonia",             lat: 50.9375, lng:  6.9603 },
+  { nome: "Aachen",              lat: 50.7753, lng:  6.0839 },
+  { nome: "Bonn",                lat: 50.7374, lng:  7.0982 },
+  { nome: "Lione",               lat: 45.7640, lng:  4.8357 },
+  { nome: "Torino",              lat: 45.0703, lng:  7.6869 },
+  { nome: "Noli",                lat: 44.2033, lng:  8.4130 },
+  { nome: "Savona",              lat: 44.3071, lng:  8.4815 },
+  { nome: "Venezia",             lat: 45.4404, lng: 12.3160 },
+  { nome: "Padova",              lat: 45.4105, lng: 11.8782 },
+  { nome: "Vicenza",             lat: 45.5462, lng: 11.5414 },
+  { nome: "Valdobbiadene",       lat: 45.9008, lng: 12.0000 },
+  { nome: "Jesolo",              lat: 45.5366, lng: 12.6440 },
+  { nome: "Ferrara",             lat: 44.8381, lng: 11.6197 },
+  { nome: "Castello di Arco",    lat: 45.9178, lng: 10.8878 },
+  { nome: "Lago di Santa Croce", lat: 46.1124, lng: 12.3455 },
+  { nome: "Perugia",             lat: 43.1107, lng: 12.3908 },
+  { nome: "Anagni",              lat: 41.7420, lng: 13.1560 },
+  { nome: "Arpino",              lat: 41.6442, lng: 13.6092 },
+  { nome: "Roma",                lat: 41.8902, lng: 12.4922 },
+  { nome: "Napoli",              lat: 40.8385, lng: 14.2495 },
+  { nome: "Palermo",             lat: 38.1157, lng: 13.3615 },
+  { nome: "Monreale",            lat: 38.0808, lng: 13.2881 },
+  { nome: "Erice",               lat: 38.0378, lng: 12.5879 },
+  { nome: "Santo Antão",         lat: 17.0912, lng: -25.1415 },
+  { nome: "Mindelo",             lat: 16.8840, lng: -24.9874 },
+  { nome: "São Vicente",         lat: 16.8333, lng: -25.0000 },
+];
+
+// ── Index foto per luogo ──────────────────────────────────────────────────────
+const photosByLuogo = {};
+allPhotos.forEach(p => {
+  if (!photosByLuogo[p.luogo]) photosByLuogo[p.luogo] = [];
+  photosByLuogo[p.luogo].push(p.file);
+});
+
+document.getElementById('total-count').textContent = allPhotos.length;
+
+// ── Colori e dimensioni ───────────────────────────────────────────────────────
+function getColor(n) {
+  if (n >= 20) return '#c0392b';
+  if (n >= 6)  return '#e67e22';
+  if (n >= 3)  return '#f1c40f';
+  if (n === 2) return '#27ae60';
+  return '#2980b9';
+}
+
+function getRadius(n) {
+  if (n >= 20) return 18;
+  if (n >= 6)  return 13;
+  if (n >= 3)  return 10;
+  if (n === 2) return 8;
+  return 7;
+}
+
+// ── Mappa ─────────────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([43, 10], 4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+luoghi.forEach(l => {
+  const photos = photosByLuogo[l.nome] || [];
+  const n = photos.length;
+  if (n === 0) return;
+  const color = getColor(n);
+  const label = n === 1 ? '1 scatto' : `${n} scatti`;
+
+  const circle = L.circleMarker([l.lat, l.lng], {
+    radius: getRadius(n),
+    fillColor: color,
+    color: 'rgba(255,255,255,0.3)',
+    weight: 1.5,
+    fillOpacity: 0.88,
+  }).addTo(map);
+
+  circle.bindPopup(`
+    <div class="popup-name">
+      <span class="popup-dot" style="background:${color};"></span>${l.nome}
+    </div>
+    <div class="popup-count">${label}</div>
+    <a class="popup-btn" onclick="openLightbox('${l.nome}', 0)">Sfoglia le foto →</a>
+  `);
+});
+
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+let currentLuogo = null;
+let currentPhotos = [];
+let currentIndex = 0;
+
+function openLightbox(luogo, index) {
+  currentLuogo = luogo;
+  currentPhotos = photosByLuogo[luogo] || [];
+  currentIndex = index;
+  document.getElementById('lightbox-title').textContent = luogo;
+  renderLightbox();
+  document.getElementById('lightbox').classList.add('active');
+}
+
+function renderLightbox() {
+  const file = currentPhotos[currentIndex];
+  const n = currentPhotos.length;
+
+  document.getElementById('lightbox-counter').textContent =
+    `${currentIndex + 1} / ${n}`;
+  document.getElementById('lightbox-img').src = file;
+  document.getElementById('lightbox-filename').textContent = file;
+  document.getElementById('btn-prev').disabled = currentIndex === 0;
+  document.getElementById('btn-next').disabled = currentIndex === n - 1;
+
+  const strip = document.getElementById('thumb-strip');
+  strip.innerHTML = '';
+  currentPhotos.forEach((f, i) => {
+    const img = document.createElement('img');
+    img.src = f;
+    img.className = 'thumb' + (i === currentIndex ? ' active' : '');
+    img.onclick = () => { currentIndex = i; renderLightbox(); };
+    strip.appendChild(img);
+  });
+
+  const activeThumb = strip.children[currentIndex];
+  if (activeThumb) activeThumb.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+}
+
+function navigate(dir) {
+  currentIndex = Math.max(0, Math.min(currentPhotos.length - 1, currentIndex + dir));
+  renderLightbox();
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('active');
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lightbox').classList.contains('active')) return;
+  if (e.key === 'ArrowRight') navigate(1);
+  if (e.key === 'ArrowLeft')  navigate(-1);
+  if (e.key === 'Escape')     closeLightbox();
+});
+
+document.getElementById('lightbox').addEventListener('click', e => {
+  if (e.target === document.getElementById('lightbox')) closeLightbox();
+});
+</script>
+</body>
+</html>
